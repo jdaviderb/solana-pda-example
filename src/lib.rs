@@ -97,12 +97,12 @@ pub fn process_instruction<'a>(
                 &program_id
             )?;
             let counter_data = &mut counter.data.borrow_mut();
-            let counter = unsafe { &mut *(counter_data.as_mut_ptr() as *mut Counter) };
+            let counter_serialized = unsafe { &mut *(counter_data.as_mut_ptr() as *mut Counter) };
 
-            if counter.owner != *signer.key || !signer.is_signer {
+            if counter_serialized.owner != *signer.key || !signer.is_signer {
                 return Err(Errors::UnauthorizedAccount.into());
             }
-            counter.count += 1;
+            counter_serialized.count += 1;
         }
     }
 
