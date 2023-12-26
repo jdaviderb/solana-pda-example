@@ -27,9 +27,6 @@ module.exports = async function() {
 
   // Initialize Solana Validator
   gb.SOLANA_VALIDATOR_PROCESS = spawn('solana-test-validator', ['--bpf-program', programKeyPair.publicKey.toString(), programLibPath, '--reset', '--rpc-port', RPC_PORT.toString(), '-l', './validator']);
-  gb.SOLANA_VALIDATOR_PROCESS.on('close', () => {
-    throw new Error('solana-test-validator closed unexpectedly')
-  });
 
   // Wait for RPC to be ready
 
@@ -56,7 +53,7 @@ async function waitForRpc(): Promise<boolean> {
 }
 
 async function validateRpc(): Promise<boolean> {
-  const data = await fetch(`http://localhost:${RPC_PORT}`, {
+  const data = await fetch(`http://127.0.0.1:${RPC_PORT}`, {
     method: 'post',
     body: JSON.stringify({
       jsonrpc: "2.0",
