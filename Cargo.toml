@@ -1,0 +1,16 @@
+[package]
+name = "svm-program"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+no-entrypoint = []
+
+[dependencies]
+solana-program = "~1.17.12"
+
+[lib]
+name = "solana_program"
+crate-type = ["cdylib", "lib"]
