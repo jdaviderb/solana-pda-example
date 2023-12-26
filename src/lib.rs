@@ -8,14 +8,24 @@ use solana_program::{
     rent::Rent,
     system_instruction,
     sysvar::Sysvar,
+    program_error::ProgramError
 };
 
 entrypoint!(process_instruction);
 
 enum Errors {
     Unauthorized,
+    UnauthorizedAccount,
     CounterIsAlreadyInitialized,
     InvalidPda,
+}
+
+pub fn verify_account_owner<'a, 'b>(account: &'a AccountInfo<'a>, owner: &'b Pubkey) -> Result<&'a AccountInfo<'a>, ProgramError> where 'a: 'b {
+    if account.owner != owner {
+        return Err(Errors::Unauthorized.into());
+    }
+
+    Ok(account)
 }
 
 enum Instructions {
@@ -23,9 +33,9 @@ enum Instructions {
     IncrementCounter,
 }
 
-impl From<Errors> for solana_program::program_error::ProgramError {
+impl From<Errors> for ProgramError {
     fn from(e: Errors) -> Self {
-        solana_program::program_error::ProgramError::Custom(e as u32)
+        ProgramError::Custom(e as u32)
     }
 }
 
@@ -34,9 +44,9 @@ struct Counter {
     count: u8,     // 1,
 }
 
-pub fn process_instruction(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
+pub fn process_instruction<'a>(
+    program_id: &'a Pubkey,
+    accounts: &'a [AccountInfo<'a>],
     instruction_data: &[u8],
 ) -> ProgramResult {
     let mut accounts_iter = accounts.iter();
@@ -82,12 +92,15 @@ pub fn process_instruction(
         Instructions::IncrementCounter => {
             msg!("Instruction: IncrementCounter");
             let signer = next_account_info(&mut accounts_iter)?;
-            let counter = next_account_info(&mut accounts_iter)?;
+            let counter = verify_account_owner(
+                next_account_info(&mut accounts_iter)?, 
+                &program_id
+            )?;
             let counter_data = &mut counter.data.borrow_mut();
             let counter = unsafe { &mut *(counter_data.as_mut_ptr() as *mut Counter) };
 
-            if counter.owner != *signer.key {
-                return Err(Errors::Unauthorized.into());
+            if counter.owner != *signer.key || !signer.is_signer {
+                return Err(Errors::UnauthorizedAccount.into());
             }
             counter.count += 1;
         }
