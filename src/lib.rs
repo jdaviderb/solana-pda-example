@@ -3,10 +3,11 @@ use solana_program::{
     entrypoint,
     entrypoint::ProgramResult,
     msg,
-    pubkey::Pubkey,
-    system_instruction,
     program::invoke_signed,
-    rent::Rent, sysvar::Sysvar,
+    pubkey::Pubkey,
+    rent::Rent,
+    system_instruction,
+    sysvar::Sysvar,
 };
 
 entrypoint!(process_instruction);
@@ -14,7 +15,7 @@ entrypoint!(process_instruction);
 enum Errors {
     Unauthorized,
     CounterIsAlreadyInitialized,
-    InvalidPda
+    InvalidPda,
 }
 
 enum Instructions {
@@ -30,8 +31,7 @@ impl From<Errors> for solana_program::program_error::ProgramError {
 
 struct Counter {
     owner: Pubkey, // 32
-    count: u8, // 1,
-
+    count: u8,     // 1,
 }
 
 pub fn process_instruction(
@@ -41,15 +41,17 @@ pub fn process_instruction(
 ) -> ProgramResult {
     let mut accounts_iter = accounts.iter();
     let instruction = unsafe { &*(instruction_data.as_ptr() as *const Instructions) };
-    
+
     match instruction {
         Instructions::InitializeCounter => {
+            let counter_size = ::std::mem::size_of::<Counter>();
             msg!("Instruction: InitializeCounter");
             let signer = next_account_info(&mut accounts_iter)?;
             let counter = next_account_info(&mut accounts_iter)?;
-            let (counter_pda, bump) = Pubkey::find_program_address(&[signer.key.as_ref(), b"counter"], program_id);
+            let (counter_pda, bump) =
+                Pubkey::find_program_address(&[signer.key.as_ref(), b"counter"], program_id);
             let system_program = next_account_info(&mut accounts_iter)?;
-            
+
             if &Pubkey::default() != counter.owner {
                 return Err(Errors::CounterIsAlreadyInitialized.into());
             }
@@ -59,13 +61,19 @@ pub fn process_instruction(
             }
 
             invoke_signed(
-                &system_instruction::create_account(signer.key, counter.key, Rent::get()?.minimum_balance(33), 33, program_id),
+                &system_instruction::create_account(
+                    signer.key,
+                    counter.key,
+                    Rent::get()?.minimum_balance(counter_size),
+                    counter_size as u64,
+                    program_id,
+                ),
                 &[signer.clone(), counter.clone(), system_program.clone()],
                 &[&[signer.key.as_ref(), &b"counter"[..], &[bump]]],
             )?;
 
             let counter_data = &mut counter.data.borrow_mut();
-            let counter  = unsafe { &mut *(counter_data.as_mut_ptr() as *mut Counter) };
+            let counter = unsafe { &mut *(counter_data.as_mut_ptr() as *mut Counter) };
 
             counter.count = 1;
             counter.owner = *signer.key;
@@ -75,7 +83,7 @@ pub fn process_instruction(
             msg!("Instruction: IncrementCounter");
             let signer = next_account_info(&mut accounts_iter)?;
             let counter = next_account_info(&mut accounts_iter)?;
-            let counter_data =  &mut counter.data.borrow_mut();
+            let counter_data = &mut counter.data.borrow_mut();
             let counter = unsafe { &mut *(counter_data.as_mut_ptr() as *mut Counter) };
 
             if counter.owner != *signer.key {
